@@ -14,7 +14,7 @@
 - (BOOL)bk_validateMenuItem:(NSMenuItem *)menuItem
 {
     BOOL valid = [self bk_validateMenuItem:menuItem];
-    
+
 	if ([menuItem action] == @selector(bk_ocdAlign:)) {
         [menuItem setState:NSOnState];
         valid = YES;
@@ -24,35 +24,44 @@
 
 - (void)bk_ocdAlign:(id)sender
 {
-    NSCharacterSet *equalSet = [NSCharacterSet characterSetWithCharactersInString:@"="];
-    NSUInteger maxEquals     = 0;
-    NSString *selection      = [[[self textStorage] string] substringWithRange:[self selectedRange]];
-    NSArray *lines           = [selection componentsSeparatedByString:@"\n"];
-    
+    NSCharacterSet *equalSet   = [NSCharacterSet characterSetWithCharactersInString:@"="];
+    NSUInteger maxEquals       = 0;
+    NSString *selection        = [[[self textStorage] string] substringWithRange:[self selectedRange]];
+    NSArray *lines             = [selection componentsSeparatedByString:@"\n"];
+    NSRegularExpression *regex = [NSRegularExpression regularExpressionWithPattern:@"\\s+=\\s+" options:NSRegularExpressionCaseInsensitive error:nil];
+
+    // Remove extra spaces one each side of "=".
+    NSMutableArray *compressedLines = [NSMutableArray arrayWithCapacity:[lines count]];
     for (NSString *line in lines)
+    {
+        [compressedLines addObject:[regex stringByReplacingMatchesInString:line options:0 range:NSMakeRange(0, [line length]) withTemplate:@" = "]];
+    }
+
+    // Find the maximum space required.
+    for (NSString *line in compressedLines)
     {
         NSUInteger equalLocation = [line rangeOfCharacterFromSet:equalSet].location;
         if (equalLocation != NSNotFound)
             maxEquals = MAX(maxEquals,equalLocation);
     }
-    
-    NSMutableString *replacement = [NSMutableString string];
-    for (NSString *line in lines)
+
+    // Add padding on the left side of "=".
+    NSMutableArray *replacementLines = [NSMutableArray arrayWithCapacity:[lines count]];
+    for (NSString *line in compressedLines)
     {
+        NSMutableString *replacedLine = [line mutableCopy];
         NSUInteger equalLocation = [line rangeOfCharacterFromSet:equalSet].location;
         if (equalLocation != NSNotFound)
         {
-            NSMutableString *mutableLine = [line mutableCopy];
-            
             for (NSUInteger i = equalLocation; i < maxEquals; i++)
-                [mutableLine insertString:@" " atIndex:equalLocation];
-            
-            [replacement appendFormat:@"%@\n", mutableLine];
+                [replacedLine insertString:@" " atIndex:equalLocation];
         }
-        else
-            [replacement appendFormat:@"%@\n", line];
+        [replacementLines addObject:replacedLine];
     }
-    
+
+    // Join all relacement lines
+    NSString *replacement = [replacementLines componentsJoinedByString:@"\n"];
+
     [self insertText:replacement];
 }
 
